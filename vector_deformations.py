@@ -18,7 +18,7 @@ def stroke_thickness_transform(points):
     # As per paper
     ns = random.choice([4, 6, 8, 10])
     # 10 is an assumed default stroke thickness, can be made configurable
-    base_thickness = random.uniform(0.8, 1.5) * 10 
+    base_thickness = random.uniform(0.8, 1.5) * 25
     
     # Define spline control points for the radiuses
     x_control = np.linspace(0, n - 1, ns)

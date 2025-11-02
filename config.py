@@ -9,7 +9,7 @@ IMAGES_PER_CHARACTER = 500
 
 # --- Directory Settings ---
 FONT_DIR = "assets/fonts"
-OUTPUT_DIR = "outputs/generated_dataset"
+OUTPUT_DIR = "outputs/generated_dataset_with_stroke_thickness"
 
 # --- Image Settings ---
 IMAGE_SIZE = (512, 512) # (width, height)
