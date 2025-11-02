@@ -12,24 +12,25 @@ import argparse
 from create_composite import create_side_by_side_image
 
 # --- Configuration ---
-INPUT_CSV = config.PAIR_CSV_FILE
 OUTPUT_CSV = "ratings.csv"
 OUTPUT_DIR = config.OUTPUT_DIR
-MODEL_NAME = "gemini-2.5-flash-lite"
+MODEL_NAME = "gemini-2.5-pro"
 CONCURRENT_REQUESTS = 10 # Number of parallel API calls
 
 # --- Prompts ---
-PROMPT_WITH_REASONING = (
-    "You are an expert in typography and legibility. Your task is to determine which of the two provided images of the character, 'A' or 'B', is more legible.\n\n"
-    "First, provide a brief, step-by-step reasoning for your choice. Consider factors like clarity of form, distortion, ambiguity, and stroke consistency.\n\n"
-    "Second, conclude with your final choice.\n\n"
-    "Respond in a JSON format with two keys: \"reasoning\" and \"choice\". The \"choice\" value must be one of 'A', 'B', or 'equal'."
-)
+def get_prompt_with_reasoning(letter, case_str):
+    return (
+        f"You are an expert in typography and legibility. Your task is to determine which of the two provided images of the {case_str} character, '{letter}', is more legible.\n\n"
+        "First, provide a brief, step-by-step reasoning for your choice. Consider factors like clarity of form, distortion, ambiguity, and stroke consistency.\n\n"
+        "Second, conclude with your final choice.\n\n"
+        "Respond in a JSON format with two keys: \"reasoning\" and \"choice\". The \"choice\" value must be one of 'A', 'B', or 'equal'."
+    )
 
-PROMPT_NO_REASONING = (
-    "You are an expert in typography and legibility. Your task is to determine which of the two provided images of the character, 'A' or 'B', is more legible.\n\n"
-    "Respond in a JSON format with one key: \"choice\". The \"choice\" value must be one of 'A', 'B', or 'equal'."
-)
+def get_prompt_no_reasoning(letter, case_str):
+    return (
+        f"You are an expert in typography and legibility. Your task is to determine which of the two provided images of the {case_str} character, '{letter}', is more legible.\n\n"
+        "Respond in a JSON format with one key: \"choice\". The \"choice\" value must be one of 'A', 'B', or 'equal'."
+    )
 
 async def rate_one_pair(model, row, semaphore, prompt_text, legacy_composite):
     """Makes a single API call to Gemini to rate a pair of images, with retries."""
@@ -84,11 +85,22 @@ async def rate_one_pair(model, row, semaphore, prompt_text, legacy_composite):
 async def main():
     """Main function to read pairs, run concurrent API calls, and save results."""
     parser = argparse.ArgumentParser(description="Rate image pairs using the Gemini API.")
+    parser.add_argument("input_csv", help="Path to the input CSV file containing image pairs.")
     parser.add_argument('--with-reasoning', action='store_true', help="Use the prompt with the reasoning step.")
     parser.add_argument('--legacy-composite', action='store_true', help="Use the legacy composite image creation logic.")
     args = parser.parse_args()
 
-    prompt_text = PROMPT_WITH_REASONING if args.with_reasoning else PROMPT_NO_REASONING
+    if not os.path.exists(args.input_csv):
+        print(f"Error: Input file not found: {args.input_csv}")
+        return
+        
+    df = pd.read_csv(args.input_csv)
+    if df.empty:
+        print("Input CSV is empty. Nothing to do.")
+        return
+
+    print(f"Found {len(df)} pairs to rate in {args.input_csv}.")
+
     if args.with_reasoning:
         print("--- Running in WITH REASONING mode ---")
     else:
@@ -105,17 +117,23 @@ async def main():
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel(MODEL_NAME)
     
-    if not os.path.exists(INPUT_CSV):
-        print(f"Error: Input file not found: {INPUT_CSV}")
-        print("Please run 'generate_pairs.py' first.")
-        return
-        
-    df = pd.read_csv(INPUT_CSV)
-    print(f"Found {len(df)} pairs to rate.")
-
     semaphore = asyncio.Semaphore(CONCURRENT_REQUESTS)
     tasks = []
     for _, row in df.iterrows():
+        try:
+            image_a_path = os.path.join(OUTPUT_DIR, row.image_a)
+            dir_name = os.path.basename(os.path.dirname(image_a_path))
+            parts = dir_name.split('_')
+            letter = parts[0]
+            case_info = parts[1] if len(parts) > 1 else ""
+            case_str = f"{case_info}case" if case_info else ""
+        except (IndexError, AttributeError):
+            letter = "the character"
+            case_str = ""
+
+        prompt_text_func = get_prompt_with_reasoning if args.with_reasoning else get_prompt_no_reasoning
+        prompt_text = prompt_text_func(letter, case_str)
+
         tasks.append(rate_one_pair(model, row, semaphore, prompt_text, args.legacy_composite))
     
     print(f"Starting rating process with {CONCURRENT_REQUESTS} concurrent requests...")

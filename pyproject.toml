@@ -12,7 +12,9 @@ dependencies = [
     "scipy",
     "google-generativeai",
     "pandas",
-    "python-dotenv"
+    "python-dotenv",
+    "openai>=2.6.1",
+    "dashscope>=1.24.9",
 ]
 
 [tool.uv]
