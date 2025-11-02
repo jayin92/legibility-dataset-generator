@@ -22,8 +22,15 @@ def process_job(job_args):
         deformed_img = deformations.apply_random_deformation(base_img)
 
         # 3. Create output path and save
-        # e.g., generated_dataset/A/A_Arial_00001.png
-        char_dir = os.path.join(config.OUTPUT_DIR, char)
+        # e.g., generated_dataset/A_upper/A_Arial_00001.png
+        if 'a' <= char <= 'z':
+            dir_name = f"{char}_lower"
+        elif 'A' <= char <= 'Z':
+            char_ = char.lower()
+            dir_name = f"{char_}_upper"
+        else:
+            dir_name = char
+        char_dir = os.path.join(config.OUTPUT_DIR, dir_name)
         if not os.path.exists(char_dir):
             try:
                 os.makedirs(char_dir, exist_ok=True)

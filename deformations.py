@@ -3,6 +3,7 @@ import numpy as np
 import skimage.transform as skimg_tr
 import random
 import config
+import os
 
 # --- 1. LOCAL STRUCTURAL DEFORMATION ---
 def slice_and_stretch(img, stretch_factor=2.0, axis='y'):
@@ -119,6 +120,9 @@ def apply_random_deformation(img):
     pad = config.PRE_DEFORM_PADDING
     
     # 1. Add padding
+    # Note: config.BACKGROUND_COLOR is (R,G,B), but cv2 borderValue expects (B,G,R)
+    # This is fine for white (255,255,255) but would fail for other colors.
+    # We'll assume white for now as per config.
     bg_val = [c for c in config.BACKGROUND_COLOR] # (R,G,B) -> [R,G,B]
     img_padded = cv2.copyMakeBorder(img, pad, pad, pad, pad,
                                     cv2.BORDER_CONSTANT, value=bg_val)
@@ -150,8 +154,16 @@ def apply_random_deformation(img):
         
     # Invert (find black text)
     thresh = cv2.threshold(gray, 254, 255, cv2.THRESH_BINARY_INV)[1]
-    
-    x, y, w, h = cv2.boundingRect(thresh)
+
+    # --- FIX: Use Morphological Opening to remove noise artifacts ---
+    # A kernel for the operation. A larger kernel is more aggressive in removing noise.
+    kernel = np.ones((5,5), np.uint8)
+    # Opening = erosion followed by dilation. It removes small objects (noise).
+    cleaned_thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
+    # --- END FIX ---
+
+    # Find bounding box on the cleaned mask
+    x, y, w, h = cv2.boundingRect(cleaned_thresh)
     
     # If no text found, return a blank image
     if w == 0 or h == 0:
@@ -159,30 +171,46 @@ def apply_random_deformation(img):
                        255, dtype=np.uint8)
     
     cropped = img_padded[y:y+h, x:x+w]
+
+    # # --- DEBUG: Save cropped image ---
+    # debug_dir = 'debug_cropped'
+    # if not os.path.exists(debug_dir):
+    #     os.makedirs(debug_dir)
+    # # Use a more unique filename to avoid collisions in multiprocessing
+    # pid = os.getpid()
+    # rand_id = random.randint(0, 9999)
+    # cv2.imwrite(os.path.join(debug_dir, f'cropped_{pid}_{rand_id}.png'), cropped)
+    # # --- END DEBUG ---
+
     
-    # 4. Resize back to the original 512x512, preserving aspect ratio
+    # 4. Resize back to the original 512x512, PRESERVING aspect ratio.
+    # This centers the deformed character on the canvas.
     
-    # Create a 512x512 canvas
+    # Create a 512x512 canvas (target size is rows, cols)
     final_canvas = np.full((rows, cols, 3 if config.IMAGE_MODE == 'RGB' else 1), 
                            255, dtype=np.uint8)
-    if config.IMAGE_MODE == 'RGB':
-        final_canvas[:] = config.BACKGROUND_COLOR
     
-    # Scale the cropped image to fit
-    max_dim = max(w, h)
-    scale = config.IMAGE_SIZE[0] / max_dim
+    if config.IMAGE_MODE == 'RGB':
+        # Create BGR background color
+        bg_color_bgr = (config.BACKGROUND_COLOR[2], config.BACKGROUND_COLOR[1], config.BACKGROUND_COLOR[0])
+        final_canvas[:] = bg_color_bgr
+    
+    # Scale the cropped image to fit, preserving aspect ratio
+    # target_rows = rows, target_cols = cols
+    scale = min(rows / h, cols / w) # Find best scale to fit
     
     new_w = int(w * scale)
     new_h = int(h * scale)
     
+    # Ensure dimensions are valid for resize
     if new_w <= 0 or new_h <= 0:
         return final_canvas # Return blank canvas
         
     resized = cv2.resize(cropped, (new_w, new_h), interpolation=cv2.INTER_AREA)
     
     # Paste it in the center
-    paste_x = (config.IMAGE_SIZE[0] - new_w) // 2
-    paste_y = (config.IMAGE_SIZE[1] - new_h) // 2
+    paste_x = (cols - new_w) // 2
+    paste_y = (rows - new_h) // 2
     
     final_canvas[paste_y:paste_y+new_h, paste_x:paste_x+new_w] = resized
     

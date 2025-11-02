@@ -17,7 +17,15 @@ def main():
     images_by_char = {char: [] for char in config.CHARACTERS}
     
     for char in config.CHARACTERS:
-        char_dir = os.path.join(config.OUTPUT_DIR, char)
+        if 'a' <= char <= 'z':
+            dir_name = f"{char}_lower"
+        elif 'A' <= char <= 'Z':
+            char_ = char.lower()
+            dir_name = f"{char_}_upper"
+        else:
+            dir_name = char
+
+        char_dir = os.path.join(config.OUTPUT_DIR, dir_name)
         if not os.path.exists(char_dir):
             print(f"Warning: No images found for character '{char}'")
             continue
@@ -25,7 +33,7 @@ def main():
         for img_name in os.listdir(char_dir):
             if img_name.endswith('.png'):
                 # Store the *relative path* for the CSV
-                images_by_char[char].append(os.path.join(char, img_name))
+                images_by_char[char].append(os.path.join(dir_name, img_name))
     
     # Filter out characters with less than 2 images
     valid_chars = [char for char, imgs in images_by_char.items() if len(imgs) >= 2]

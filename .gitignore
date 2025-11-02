@@ -1,1 +1,8 @@
+# Python
+.venv
+__pycache__/
+*.pyc
+*.egg-info/
+
+outputs/*
 assets/fonts/*
