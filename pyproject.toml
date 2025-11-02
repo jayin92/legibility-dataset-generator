@@ -1,0 +1,15 @@
+[project]
+name = "legibility-dataset-generator"
+version = "1.0.0"
+description = "Generates a large-scale dataset of deformed characters for VLM legibility training."
+dependencies = [
+    "opencv-contrib-python",
+    "numpy",
+    "scikit-image",
+    "Pillow",
+    "tqdm"
+]
+
+[tool.uv]
+# This section is optional but good practice
+# You can add tool-specific configurations here if needed
