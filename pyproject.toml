@@ -9,7 +9,10 @@ dependencies = [
     "Pillow",
     "tqdm",
     "fontTools",
-    "scipy"
+    "scipy",
+    "google-generativeai",
+    "pandas",
+    "python-dotenv"
 ]
 
 [tool.uv]

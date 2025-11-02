@@ -29,6 +29,16 @@ PRE_DEFORM_PADDING = 256 # pixels
 # --- Pair Generation Settings ---
 # The number of comparison pairs to generate for the VLM.
 # e.g., 50,000 pairs like ('a_001.png', 'a_523.png')
-NUM_COMPARISON_PAIRS = 50000
+NUM_COMPARISON_PAIRS = 100
 PAIR_CSV_FILE = "pairs.csv"
 
+# --- Composite Image Settings ---
+COMPOSITE_HEADER_HEIGHT = 60
+COMPOSITE_PADDING = 20
+COMPOSITE_BORDER_WIDTH = 2
+COMPOSITE_DIVIDER_WIDTH = 2
+COMPOSITE_BACKGROUND_COLOR = (255, 255, 255) # White
+COMPOSITE_HEADER_COLOR = (240, 240, 240) # Light Grey
+COMPOSITE_BORDER_COLOR = (192, 192, 192) # Grey
+COMPOSITE_DIVIDER_COLOR = (192, 192, 192) # Grey
+COMPOSITE_TEXT_COLOR = (0, 0, 0) # Black
