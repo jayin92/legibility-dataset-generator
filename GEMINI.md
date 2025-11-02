@@ -65,3 +65,59 @@ python generate_pairs.py
     *   `deformations.py`: Contains functions to apply various deformations to images.
     *   `pipeline.py`: Defines the main processing job for a single image.
 *   **Parallelism:** The processing pipeline is designed to be run in parallel using multiprocessing to speed up dataset generation.
+
+## Generating Legibility Ratings
+
+After generating a dataset and a `pairs.csv` file, you can use the `rate_pairs.py` script to get legibility judgments from the Gemini 1.5 Flash model. This will produce a `ratings.csv` file which can be used to train a legibility measure.
+
+### 1. Install Additional Dependencies
+
+The rating script requires new dependencies. Ensure you have installed them:
+
+```bash
+uv pip install -e .
+```
+
+### 2. Set Up Your API Key
+
+You need to provide your Gemini API key.
+
+1.  Copy the example `.env.example` file to a new file named `.env`.
+    ```bash
+    cp .env.example .env
+    ```
+2.  Open the `.env` file and replace `YOUR_API_KEY_HERE` with your actual Gemini API key.
+
+### 3. Run the Rating Script
+
+Execute the `rate_pairs.py` script. It will read `pairs.csv`, call the Gemini API for each pair concurrently, and save the results to `ratings.csv`.
+
+```bash
+python rate_pairs.py
+```
+
+The script will display a progress bar. Upon completion, it will print a summary of the ratings received.
+
+## Ablation Study
+
+An ablation study was conducted to analyze the impact of providing reasoning and using different image composition strategies on the models' performance. The study revealed that the models' behavior is highly sensitive to both the prompt structure and the visual presentation of the images.
+
+### Composite Image Strategy: Legacy vs. New
+
+The following table summarizes the results using the legacy composite image strategy, where the two images are placed side-by-side with no borders or padding.
+
+--- Ablation Study Summary ---
+| Model                                         | Prompt Mode        | Speed (req/s)   | Consistency     | Top Choice   | Distribution                               |
+|------------------------------------------------------------------------------------------------------------------------------------|
+| gemini-2.5-pro                                | With_Reasoning     | 0.61            | 64.0%           | a            | a: 32, b: 13, equal: 5                     |
+| gemini-2.5-pro                                | No_Reasoning       | 1.15            | 94.0%           | equal        | equal: 47, b: 1, a: 2                      |
+| gemini-2.5-flash                              | With_Reasoning     | 0.79            | 94.0%           | b            | b: 47, a: 3                                |
+| gemini-2.5-flash                              | No_Reasoning       | 0.95            | 52.0%           | b            | b: 26, a: 24                               |
+| gemini-2.5-flash-preview-09-2025              | With_Reasoning     | 1.21            | 84.0%           | b            | a: 8, b: 42                                |
+| gemini-2.5-flash-preview-09-2025              | No_Reasoning       | 1.38            | 84.0%           | b            | b: 42, a: 7, error: 1                      |
+| gemini-2.5-flash-lite                         | With_Reasoning     | 4.16            | 58.0%           | b            | a: 18, b: 29, equal: 3                     |
+| gemini-2.5-flash-lite                         | No_Reasoning       | 7.82            | 58.0%           | equal        | a: 21, equal: 29                           |
+| gemini-2.5-flash-lite-preview-09-2025         | With_Reasoning     | 4.15            | 72.0%           | b            | b: 36, a: 13, equal: 1                     |
+| gemini-2.5-flash-lite-preview-09-2025         | No_Reasoning       | 8.30            | 66.0%           | b            | a: 12, b: 33, equal: 5                     |
+
+Interestingly, the legacy composite strategy appears to yield more consistent results. This might be because the simpler visual presentation reduces the potential for the model to be distracted by or misinterpret extraneous visual elements like borders, padding, and dividing lines.
