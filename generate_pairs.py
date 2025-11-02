@@ -17,13 +17,14 @@ def main():
     images_by_char = {char: [] for char in config.CHARACTERS}
     
     for char in config.CHARACTERS:
+        char_for_path = char
         if 'a' <= char <= 'z':
-            dir_name = f"{char}_lower"
+            dir_name = f"{char_for_path}_lower"
         elif 'A' <= char <= 'Z':
-            char_ = char.lower()
-            dir_name = f"{char_}_upper"
+            char_for_path = char.lower()
+            dir_name = f"{char_for_path}_upper"
         else:
-            dir_name = char
+            dir_name = char_for_path
 
         char_dir = os.path.join(config.OUTPUT_DIR, dir_name)
         if not os.path.exists(char_dir):

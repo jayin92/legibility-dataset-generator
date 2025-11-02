@@ -7,9 +7,14 @@ dependencies = [
     "numpy",
     "scikit-image",
     "Pillow",
-    "tqdm"
+    "tqdm",
+    "fontTools",
+    "scipy"
 ]
 
 [tool.uv]
 # This section is optional but good practice
 # You can add tool-specific configurations here if needed
+
+[tool.setuptools.packages.find]
+exclude = ["assets*", "outputs*"]

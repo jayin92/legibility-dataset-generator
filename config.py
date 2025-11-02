@@ -18,6 +18,9 @@ TEXT_COLOR = (0, 0, 0) # Black
 IMAGE_MODE = "RGB" # "RGB" or "L" (grayscale)
 
 # --- Deformation Settings ---
+# Probability of using the new vector-based stroke thickness deformation
+USE_VECTOR_DEFORMATION_PROB = 0.25 # 25% chance
+
 # Padding added before deformation to prevent clipping.
 # This should be a large value.
 PRE_DEFORM_PADDING = 256 # pixels
