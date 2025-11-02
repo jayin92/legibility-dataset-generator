@@ -12,7 +12,7 @@ def process_job(job_args):
     Takes one job, processes it, and saves the file.
     """
     # Unpack arguments
-    char, font_path, font_index, font_name, job_id, total_jobs = job_args
+    char, font_path, font_index, font_name, random_id, total_jobs = job_args
     
     try:
         # 1. Generate the base character image
@@ -20,9 +20,6 @@ def process_job(job_args):
         # Randomly choose to use vector or raster deformation for base image
         if random.random() < config.USE_VECTOR_DEFORMATION_PROB:
             base_img = vector_deformations.generate_vector_deformed_image(char, font_path, font_index)
-            # Save for debugging
-            # cv2.imwrite(f"debug/debug_vector_{char}_{font_name}_{job_id:05d}.png", base_img)
-            
 
         # If vector deformation failed or was not chosen, use the original raster renderer
         if base_img is None:
@@ -35,7 +32,7 @@ def process_job(job_args):
         deformed_img = deformations.apply_random_deformation(base_img)
 
         # 3. Create output path and save
-        # e.g., generated_dataset/a_upper/a_Arial_00001.png
+        # e.g., generated_dataset/a_upper/a_Arial_f8b4a2d1.png
         char_for_path = char
         if 'a' <= char <= 'z':
             dir_name = f"{char_for_path}_lower"
@@ -52,14 +49,10 @@ def process_job(job_args):
             except FileExistsError:
                 pass # Race condition in multiprocessing
 
-        filename = f"{char_for_path}_{font_name}_{job_id:05d}.png"
+        filename = f"{char_for_path}_{font_name}_{random_id}.png"
         output_path = os.path.join(char_dir, filename)
         
         cv2.imwrite(output_path, deformed_img)
-
-        # Log progress for one of the processes
-        if job_id % (total_jobs // 100) == 0:
-             print(f"Progress: Processed {job_id}/{total_jobs}...")
 
         return f"OK: {output_path}"
         

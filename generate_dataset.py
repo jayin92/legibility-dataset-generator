@@ -1,6 +1,7 @@
 import os
 import random
 import multiprocessing
+import uuid
 from tqdm import tqdm
 import config
 import font_loader
@@ -29,13 +30,14 @@ def main():
             # Pick a random font for this job
             font_path, font_index, font_name = random.choice(fonts)
             
-            # (char, font_path, font_index, font_name, job_id, total_jobs)
+            # (char, font_path, font_index, font_name, random_id, total_jobs)
+            random_id = uuid.uuid4().hex[:6]
             job_args = (
                 char, 
                 font_path, 
                 font_index, 
                 font_name,
-                i + 1, # job_id
+                random_id, # Use random hash instead of sequential id
                 config.IMAGES_PER_CHARACTER * len(config.CHARACTERS)
             )
             job_list.append(job_args)
@@ -45,7 +47,7 @@ def main():
     random.shuffle(job_list) # Shuffle to distribute font types
 
     # 4. Execute jobs in parallel
-    num_cpus = multiprocessing.cpu_count()
+    num_cpus = int(multiprocessing.cpu_count() * config.USE_CPU_RATIO)
     print(f"Starting dataset generation on {num_cpus} CPU cores...")
     
     # Use pool.imap_unordered for efficiency and tqdm for progress
