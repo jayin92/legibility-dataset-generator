@@ -23,6 +23,7 @@ dependencies = [
     "filelock",
     "sentencepiece>=0.2.1",
     "wandb",
+    "gradio",
 ]
 
 [tool.uv]
