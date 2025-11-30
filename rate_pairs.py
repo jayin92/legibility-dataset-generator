@@ -430,13 +430,13 @@ async def main():
     print(f"--- Running in {mode} mode with {args.provider} : {args.model} ---")
     print(f"Five-level scoring: {args.five_level_scores}")
 
-    # Setup output JSONL file with unique identifier to prevent overwrites
+    # Setup output JSONL file
     base_name = os.path.splitext(os.path.basename(args.input_csv))[0]
-    timestamp = int(time.time())
-    unique_id = uuid.uuid4().hex[:6]
-    output_jsonl = f"ratings_{base_name}_{args.provider}_{args.model}_{timestamp}_{unique_id}.jsonl"
+    output_dir = "data"
+    os.makedirs(output_dir, exist_ok=True)
+    output_jsonl = os.path.join(output_dir, f"ratings_{base_name}_{args.provider}_{args.model}.jsonl")
     
-    # Clear existing file if it exists (not really needed with unique ID, but good practice if we reused name)
+    # Clear existing file if it exists
     with open(output_jsonl, "w") as f:
         pass
     print(f"Logging results on-the-fly to: {output_jsonl}")
