@@ -11,6 +11,7 @@ from PIL import Image
 from transformers import AutoModel, AutoProcessor
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
+import wandb
 import config
 
 # --- Configuration ---
@@ -164,8 +165,17 @@ class LegibilityPredictor(nn.Module):
 # --- Training Loop ---
 
 def train(args):
+    # Initialize WandB
+    wandb.init(project="legibility-predictor", config=vars(args))
+    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
+
+    # Setup Output Directory
+    base_name = os.path.splitext(os.path.basename(args.input_file))[0]
+    output_dir = os.path.join("outputs", base_name)
+    os.makedirs(output_dir, exist_ok=True)
+    print(f"Saving checkpoints to: {output_dir}")
 
     # 1. Prepare Data
     processor = AutoProcessor.from_pretrained(SIGLIP_MODEL_NAME)
@@ -192,9 +202,6 @@ def train(args):
     feature_extractor = SigLIPFeatureExtractor()
     # Get embedding dimension dynamically
     dummy_input = torch.randn(1, 3, 512, 512) # Standard SigLIP2 input size
-    # We need to run a dummy pass or check config. 
-    # SigLIP base usually has 768 dim.
-    # Let's trust the model config or run a dummy pass on CPU.
     with torch.no_grad():
         dummy_out = feature_extractor.model.vision_model(dummy_input).pooler_output
         input_dim = dummy_out.shape[1]
@@ -231,6 +238,9 @@ def train(args):
             train_loss += loss.item()
             progress_bar.set_postfix({"loss": loss.item()})
             
+            # Log batch loss
+            wandb.log({"batch_train_loss": loss.item()})
+            
         avg_train_loss = train_loss / len(train_loader)
         
         # Validation
@@ -249,24 +259,9 @@ def train(args):
                 loss = criterion(score_a, score_b, labels)
                 val_loss += loss.item()
                 
-                # Calculate accuracy
-                # If label > 0.5, expect score_a > score_b
-                # If label < 0.5, expect score_b > score_a
-                # If label == 0.5, strictly speaking any order is wrong if not equal, 
-                # but for accuracy we usually check if sign matches preference.
-                # Let's define accuracy as: correct direction prediction.
-                
                 diff = score_a - score_b
-                # Predictions: 1 if a > b, 0 if b > a
                 preds = (diff > 0).float()
                 
-                # Targets for accuracy: 1 if label > 0.5, 0 if label < 0.5
-                # Ignore ties for binary accuracy or treat them separately.
-                # Here we'll just check standard directional accuracy.
-                
-                # Create binary targets (1 if A preferred, 0 if B preferred)
-                # For ties (0.5), we can't really be "correct" in a binary sense unless we predict exactly 0 diff.
-                # Let's exclude ties from accuracy calculation for clarity.
                 non_ties = (labels != 0.5)
                 if non_ties.sum() > 0:
                     binary_preds = preds[non_ties]
@@ -279,14 +274,31 @@ def train(args):
         
         print(f"Epoch {epoch+1}: Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}, Val Acc (non-ties): {val_acc:.4f}")
         
+        # Log epoch metrics
+        wandb.log({
+            "epoch": epoch + 1,
+            "train_loss": avg_train_loss,
+            "val_loss": avg_val_loss,
+            "val_acc": val_acc
+        })
+        
+        # Save Latest Checkpoint
+        latest_path = os.path.join(output_dir, "checkpoint_latest.pth")
+        torch.save(model.state_dict(), latest_path)
+        
+        # Save Best Checkpoint
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
-            torch.save(model.state_dict(), "legibility_predictor.pth")
-            print("Saved best model.")
+            best_path = os.path.join(output_dir, "checkpoint_best.pth")
+            torch.save(model.state_dict(), best_path)
+            print(f"Saved best model to {best_path}")
+            wandb.log({"best_val_loss": best_val_loss})
 
     # Cleanup temp files
     if os.path.exists("train_temp.jsonl"): os.remove("train_temp.jsonl")
     if os.path.exists("val_temp.jsonl"): os.remove("val_temp.jsonl")
+    
+    wandb.finish()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

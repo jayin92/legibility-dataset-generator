@@ -22,6 +22,7 @@ dependencies = [
     "scikit-learn",
     "filelock",
     "sentencepiece>=0.2.1",
+    "wandb",
 ]
 
 [tool.uv]
