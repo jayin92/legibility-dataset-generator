@@ -3,7 +3,7 @@ import string
 import os
 
 # Configuration
-CONCURRENT_RATING_JOBS = 5
+CONCURRENT_RATING_JOBS = 10
 PYTHON_EXECUTABLE = ".venv/bin/python" # Adjust if needed
 
 async def run_command(cmd, name):
@@ -38,11 +38,11 @@ async def process_letter(letter, rating_semaphore):
         return
 
     # Construct rate_pairs command
-    # Using defaults or what user likely wants: gemini-flash-latest, batch mode, 5-level scores
+    # Using defaults or what user likely wants:  gemini-2.5-flash-lite batch mode, 5-level scores
     rate_cmd = (
         f"{PYTHON_EXECUTABLE} rate_pairs.py {csv_file} "
         f"--provider gemini "
-        f"--model gemini-flash-latest "
+        f"--model gemini-2.5-flash-lite "
         f"--batch "
         f"--five-level-scores"
     )

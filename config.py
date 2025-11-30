@@ -9,7 +9,7 @@ IMAGES_PER_CHARACTER = 500
 
 # --- Directory Settings ---
 FONT_DIR = "assets/fonts"
-OUTPUT_DIR = "outputs/generated_dataset_with_stroke_thickness"
+OUTPUT_DIR = "data/distort_letter"
 USE_CPU_RATIO = 0.9 # Use 90% of available CPU cores
 
 # --- Image Settings ---

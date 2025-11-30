@@ -11,5 +11,7 @@ benchmark*/*
 *.jsonl
 uploaded_images_cache*.json
 *.json.lock
+data/
+*.zip
 # Environment variables
 .env
