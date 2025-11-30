@@ -14,9 +14,6 @@ from tqdm import tqdm
 import wandb
 import config
 
-# --- Configuration ---
-# --- Configuration ---
-# Moved to command line arguments
 
 # --- Dataset ---
 class LegibilityDataset(Dataset):
@@ -63,8 +60,8 @@ class LegibilityDataset(Dataset):
         except Exception as e:
             # Handle missing images gracefully
             # print(f"Error loading image: {e}")
-            image_a = Image.new("RGB", (224, 224))
-            image_b = Image.new("RGB", (224, 224))
+            image_a = Image.new("RGB", (512, 512))
+            image_b = Image.new("RGB", (512, 512))
 
         # Process images for SigLIP
         inputs_a = self.processor(images=image_a, return_tensors="pt")
@@ -185,8 +182,22 @@ def train(args):
     train_dataset = LegibilityDataset("train_temp.jsonl", processor)
     val_dataset = LegibilityDataset("val_temp.jsonl", processor)
     
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
+    train_loader = DataLoader(
+        train_dataset, 
+        batch_size=args.batch_size, 
+        shuffle=True, 
+        num_workers=args.num_workers,
+        pin_memory=True,
+        persistent_workers=True if args.num_workers > 0 else False
+    )
+    val_loader = DataLoader(
+        val_dataset, 
+        batch_size=args.batch_size, 
+        shuffle=False, 
+        num_workers=args.num_workers,
+        pin_memory=True,
+        persistent_workers=True if args.num_workers > 0 else False
+    )
 
     # 2. Initialize Model
     feature_extractor = SigLIPFeatureExtractor(model_name=args.model_name)
@@ -213,9 +224,9 @@ def train(args):
         
         progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs}")
         for pixel_values_a, pixel_values_b, labels in progress_bar:
-            pixel_values_a = pixel_values_a.to(device)
-            pixel_values_b = pixel_values_b.to(device)
-            labels = labels.to(device)
+            pixel_values_a = pixel_values_a.to(device, non_blocking=True)
+            pixel_values_b = pixel_values_b.to(device, non_blocking=True)
+            labels = labels.to(device, non_blocking=True)
             
             optimizer.zero_grad()
             
@@ -241,9 +252,9 @@ def train(args):
         
         with torch.no_grad():
             for pixel_values_a, pixel_values_b, labels in val_loader:
-                pixel_values_a = pixel_values_a.to(device)
-                pixel_values_b = pixel_values_b.to(device)
-                labels = labels.to(device)
+                pixel_values_a = pixel_values_a.to(device, non_blocking=True)
+                pixel_values_b = pixel_values_b.to(device, non_blocking=True)
+                labels = labels.to(device, non_blocking=True)
                 
                 score_a, score_b = model(pixel_values_a, pixel_values_b)
                 loss = criterion(score_a, score_b, labels)
@@ -298,6 +309,7 @@ if __name__ == "__main__":
     parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate.")
     parser.add_argument("--model_name", type=str, default="google/siglip2-so400m-patch16-512", help="HuggingFace model name for SigLIP.")
     parser.add_argument("--scaling_factor", type=float, default=10.0, help="Scaling factor for RankNet loss.")
+    parser.add_argument("--num_workers", type=int, default=4, help="Number of dataloader workers.")
     args = parser.parse_args()
     
     train(args)
