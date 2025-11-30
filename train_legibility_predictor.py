@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
-from transformers import AutoModel, AutoProcessor
+from transformers import AutoModel, AutoProcessor, VisionEncoderDecoderModel, TrOCRProcessor
 from sklearn.model_selection import train_test_split
 from scipy.stats import spearmanr
 from tqdm import tqdm
@@ -121,6 +121,46 @@ class SigLIPFeatureExtractor(nn.Module):
         dummy_input = torch.randn(1, 3, 512, 512)
         with torch.no_grad():
             output = self.model.vision_model(dummy_input).pooler_output
+        return output.shape[1]
+
+
+class TrOCRFeatureExtractor(nn.Module):
+    """Frozen TrOCR encoder for feature extraction."""
+    
+    def __init__(self, model_name: str):
+        super().__init__()
+        print(f"Loading TrOCR model: {model_name}...")
+        # TrOCR is an encoder-decoder, we only need the encoder
+        full_model = VisionEncoderDecoderModel.from_pretrained(model_name)
+        self.encoder = full_model.encoder
+        self._freeze_parameters()
+        
+    def _freeze_parameters(self):
+        """Freeze all parameters."""
+        for param in self.encoder.parameters():
+            param.requires_grad = False
+        self.encoder.eval()
+        
+    def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
+        with torch.no_grad():
+            outputs = self.encoder(pixel_values=pixel_values)
+            # Use the CLS token (first token) from the last hidden state
+            # Shape: [batch_size, seq_len, hidden_dim] -> [batch_size, hidden_dim]
+            last_hidden_state = outputs.last_hidden_state
+            cls_token = last_hidden_state[:, 0, :]
+        return cls_token
+
+    def get_output_dim(self) -> int:
+        """Get the output dimension of the feature extractor."""
+        # TrOCR base usually expects 384x384, but processor handles resizing.
+        # We'll use a dummy input to check.
+        # Note: TrOCR image size depends on the specific model config.
+        # We'll assume the processor has resized it correctly before this.
+        # Standard ViT input is often 224 or 384.
+        # Let's try to infer from config or just run a dummy.
+        dummy_input = torch.randn(1, 3, 384, 384) 
+        with torch.no_grad():
+            output = self.encoder(dummy_input).last_hidden_state[:, 0, :]
         return output.shape[1]
 
 
@@ -393,12 +433,20 @@ def train(args):
     )
     
     # Data
-    processor = AutoProcessor.from_pretrained(args.model_name)
+    if "trocr" in args.model_name.lower():
+        processor = TrOCRProcessor.from_pretrained(args.model_name)
+    else:
+        processor = AutoProcessor.from_pretrained(args.model_name)
+        
     train_loader, val_loader = create_dataloaders(args, processor)
     print(f"Train batches: {len(train_loader)}, Val batches: {len(val_loader)}")
     
     # Model
-    feature_extractor = SigLIPFeatureExtractor(args.model_name)
+    if "trocr" in args.model_name.lower():
+        feature_extractor = TrOCRFeatureExtractor(args.model_name)
+    else:
+        feature_extractor = SigLIPFeatureExtractor(args.model_name)
+        
     input_dim = feature_extractor.get_output_dim()
     print(f"Feature dimension: {input_dim}")
     
@@ -446,6 +494,10 @@ def train(args):
     # Training loop
     for epoch in range(start_epoch, args.epochs):
         model.train()
+        
+        # Step scheduler
+        scheduler.step()
+        
         train_loss = 0.0
         
         progress_bar = tqdm(
@@ -493,8 +545,6 @@ def train(args):
                     "batch/step": epoch * len(train_loader) + step,
                 })
         
-        # Step scheduler
-        scheduler.step()
         
         # Validation
         val_metrics = validate(model, val_loader, criterion, device, args.use_amp)

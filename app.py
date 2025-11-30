@@ -8,12 +8,13 @@ import torch
 import gradio as gr
 import numpy as np
 from PIL import Image
-from transformers import AutoProcessor
+from transformers import AutoProcessor, TrOCRProcessor
 
 # Import model components from training script
 from train_legibility_predictor import (
     LegibilityPredictor,
     SigLIPFeatureExtractor,
+    TrOCRFeatureExtractor,
     RankNetScorer
 )
 
@@ -23,11 +24,15 @@ try:
 except ImportError:
     SIGLIP_MODEL_NAME = "google/siglip2-so400m-patch16-512"
 
-def load_model(model_path, device):
+def load_model(model_path, model_name, device):
     print(f"Loading model from {model_path}...")
     
     # Initialize model components
-    feature_extractor = SigLIPFeatureExtractor(SIGLIP_MODEL_NAME)
+    if "trocr" in model_name.lower():
+        feature_extractor = TrOCRFeatureExtractor(model_name)
+    else:
+        feature_extractor = SigLIPFeatureExtractor(model_name)
+        
     input_dim = feature_extractor.get_output_dim()
     
     # We need to know hidden_dim from training, defaulting to 256 as per script default
@@ -103,16 +108,20 @@ def predict(image, model, processor, device):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_path", type=str, required=True, help="Path to the trained model checkpoint (.pth)")
+    parser.add_argument("--model_name", type=str, default=SIGLIP_MODEL_NAME, help="HuggingFace model name (e.g. microsoft/trocr-base-handwritten)")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
 
     device = torch.device(args.device)
     
     # Load model
-    model = load_model(args.model_path, device)
+    model = load_model(args.model_path, args.model_name, device)
     
     # Load processor
-    processor = AutoProcessor.from_pretrained(SIGLIP_MODEL_NAME)
+    if "trocr" in args.model_name.lower():
+        processor = TrOCRProcessor.from_pretrained(args.model_name)
+    else:
+        processor = AutoProcessor.from_pretrained(args.model_name)
 
     # Define Gradio interface
     def predict_fn(sketch):
