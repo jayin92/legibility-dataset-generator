@@ -9,6 +9,7 @@ debug/*
 *.csv
 benchmark*/*
 *.jsonl
-
+uploaded_images_cache*.json
+*.json.lock
 # Environment variables
 .env

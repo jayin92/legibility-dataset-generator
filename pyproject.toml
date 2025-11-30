@@ -10,7 +10,8 @@ dependencies = [
     "tqdm",
     "fontTools",
     "scipy",
-    "google-generativeai",
+    "google-genai",
+    "pydantic",
     "pandas",
     "python-dotenv",
     "openai>=2.6.1",
@@ -19,6 +20,7 @@ dependencies = [
     "torch",
     "transformers",
     "scikit-learn",
+    "filelock",
 ]
 
 [tool.uv]
