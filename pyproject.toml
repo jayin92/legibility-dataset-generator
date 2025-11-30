@@ -21,6 +21,7 @@ dependencies = [
     "transformers",
     "scikit-learn",
     "filelock",
+    "wandb",
 ]
 
 [tool.uv]
