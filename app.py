@@ -38,18 +38,31 @@ def load_model(model_path, device):
     checkpoint = torch.load(model_path, map_location=device)
     
     if 'model_state_dict' in checkpoint:
-        # It's a full checkpoint
-        model.load_state_dict(checkpoint['model_state_dict'])
+        state_dict = checkpoint['model_state_dict']
     else:
-        # Assume it's just the state dict (e.g. scorer_final.pth or raw save)
-        # If it's just scorer, we need to be careful. 
-        # The training script saves `model.scorer.state_dict()` to `scorer_final.pth`.
-        # If loading that, we should only load it into model.scorer.
+        state_dict = checkpoint
+
+    # Handle torch.compile prefix
+    new_state_dict = {}
+    for k, v in state_dict.items():
+        if k.startswith('_orig_mod.'):
+            new_state_dict[k[10:]] = v
+        else:
+            new_state_dict[k] = v
+    state_dict = new_state_dict
+
+    try:
+        model.load_state_dict(state_dict)
+    except RuntimeError as e:
+        print(f"Full model load failed: {e}")
+        print("Trying to load as scorer only...")
+        # If it's just the scorer, the keys might still have prefixes or be different
+        # Let's try loading into model.scorer if keys match
         try:
-            model.load_state_dict(checkpoint)
-        except RuntimeError:
-            print("Failed to load as full model, trying as scorer only...")
-            model.scorer.load_state_dict(checkpoint)
+            model.scorer.load_state_dict(state_dict)
+        except RuntimeError as e2:
+             print(f"Scorer load failed: {e2}")
+             raise e2
             
     model.to(device)
     model.eval()
