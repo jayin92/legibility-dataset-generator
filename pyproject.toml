@@ -21,6 +21,7 @@ dependencies = [
     "transformers",
     "scikit-learn",
     "filelock",
+    "sentencepiece>=0.2.1",
 ]
 
 [tool.uv]
