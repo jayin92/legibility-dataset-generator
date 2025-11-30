@@ -53,7 +53,9 @@ def main():
         pairs.append((img_a, img_b, letter_to_process))
 
     # 3. Write to CSV
-    output_filename = f"pairs_{letter_to_process}.csv"
+    output_dir = os.path.join("data", "pairs")
+    os.makedirs(output_dir, exist_ok=True)
+    output_filename = os.path.join(output_dir, f"pairs_{letter_to_process}.csv")
     try:
         with open(output_filename, 'w', newline='') as f:
             writer = csv.writer(f)
