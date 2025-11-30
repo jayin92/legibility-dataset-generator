@@ -116,10 +116,13 @@ def main():
 
     # Define Gradio interface
     def predict_fn(sketch):
-        # Sketch is a numpy array from Gradio
-        # If using 'sketchpad', it might be a dict with 'image' and 'mask' or just image depending on version/settings
-        # Using type="numpy" or type="pil" in Image component
-        return predict(sketch, model, processor, device)
+        # Sketchpad returns a dict with 'composite', 'layers', 'background'
+        if isinstance(sketch, dict):
+            image = sketch.get("composite")
+        else:
+            image = sketch
+            
+        return predict(image, model, processor, device)
 
     with gr.Blocks() as demo:
         gr.Markdown("# Legibility Predictor Demo")
@@ -127,16 +130,12 @@ def main():
         
         with gr.Row():
             with gr.Column():
-                # Canvas for drawing
-                # Inverting colors might be needed if model was trained on black-on-white
-                # Gradio Sketchpad defaults? 
-                # Let's use Image component with tool='sketch'
-                canvas = gr.Image(
+                # Use Sketchpad for drawing
+                canvas = gr.Sketchpad(
                     label="Draw Character", 
-                    sources=["canvas"], 
-                    type="pil", 
-                    image_mode="RGB",
-                    brush_radius=10
+                    type="numpy",
+                    brush=gr.Brush(colors=["#000000"], color_mode="fixed"),
+                    canvas_size=(512, 512)
                 )
                 submit_btn = gr.Button("Predict Legibility")
             
