@@ -15,11 +15,8 @@ import wandb
 import config
 
 # --- Configuration ---
-SIGLIP_MODEL_NAME = "google/siglip2-so400m-patch16-512"
-BATCH_SIZE = 32
-LEARNING_RATE = 1e-4
-NUM_EPOCHS = 10
-RANKNET_SCALING_FACTOR = 10.0
+# --- Configuration ---
+# Moved to command line arguments
 
 # --- Dataset ---
 class LegibilityDataset(Dataset):
@@ -64,15 +61,12 @@ class LegibilityDataset(Dataset):
             image_a = Image.open(image_a_path).convert("RGB")
             image_b = Image.open(image_b_path).convert("RGB")
         except Exception as e:
-            # Handle missing images gracefully (though ideally dataset should be clean)
-            # Return a dummy item or handle in collate_fn. 
-            # For simplicity, we'll just create a blank image (this is rare if data is consistent)
-            print(f"Error loading image: {e}")
+            # Handle missing images gracefully
+            # print(f"Error loading image: {e}")
             image_a = Image.new("RGB", (224, 224))
             image_b = Image.new("RGB", (224, 224))
 
         # Process images for SigLIP
-        # We process them individually. Processor returns dict with 'pixel_values'.
         inputs_a = self.processor(images=image_a, return_tensors="pt")
         inputs_b = self.processor(images=image_b, return_tensors="pt")
         
@@ -86,7 +80,7 @@ class LegibilityDataset(Dataset):
 # --- Model Components ---
 
 class SigLIPFeatureExtractor(nn.Module):
-    def __init__(self, model_name=SIGLIP_MODEL_NAME):
+    def __init__(self, model_name):
         super(SigLIPFeatureExtractor, self).__init__()
         print(f"Loading SigLIP model: {model_name}...")
         self.model = AutoModel.from_pretrained(model_name)
@@ -98,9 +92,6 @@ class SigLIPFeatureExtractor(nn.Module):
     def forward(self, pixel_values):
         # SigLIP vision model output
         outputs = self.model.vision_model(pixel_values=pixel_values)
-        # Use the pooled output or the embedding of the [CLS] token equivalent
-        # SigLIP typically uses the pooled output from the vision model
-        # outputs.pooler_output shape: [batch_size, hidden_dim]
         return outputs.pooler_output
 
 class RankNetScorer(nn.Module):
@@ -123,14 +114,13 @@ class RankNetScorer(nn.Module):
         return self.net(x)
 
 class RankNetLoss(nn.Module):
-    def __init__(self, scaling_factor=RANKNET_SCALING_FACTOR):
+    def __init__(self, scaling_factor):
         super(RankNetLoss, self).__init__()
         self.scaling_factor = scaling_factor
         self.bce_loss = nn.BCELoss()
 
     def forward(self, score_i, score_j, target_p_ij):
         # score_i, score_j are in [0, 1]
-        # score_diff is in [-1, 1]
         score_diff = score_i - score_j
         
         # Scale the difference to allow sigmoid to reach 0 and 1
@@ -165,20 +155,20 @@ class LegibilityPredictor(nn.Module):
 # --- Training Loop ---
 
 def train(args):
+    # Initialize WandB
+    wandb.init(project="legibility-predictor", config=vars(args), name=os.path.splitext(os.path.basename(args.input_file))[0])
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
     # Setup Output Directory
     base_name = os.path.splitext(os.path.basename(args.input_file))[0]
     output_dir = os.path.join("outputs", base_name)
     os.makedirs(output_dir, exist_ok=True)
     print(f"Saving checkpoints to: {output_dir}")
 
-    # Initialize WandB
-    wandb.init(project="legibility-predictor", config=vars(args), name=base_name)
-    
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-
     # 1. Prepare Data
-    processor = AutoProcessor.from_pretrained(SIGLIP_MODEL_NAME)
+    processor = AutoProcessor.from_pretrained(args.model_name)
     
     # Split JSONL into train/val
     all_data = []
@@ -195,11 +185,11 @@ def train(args):
     train_dataset = LegibilityDataset("train_temp.jsonl", processor)
     val_dataset = LegibilityDataset("val_temp.jsonl", processor)
     
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
     # 2. Initialize Model
-    feature_extractor = SigLIPFeatureExtractor()
+    feature_extractor = SigLIPFeatureExtractor(model_name=args.model_name)
     # Get embedding dimension dynamically
     dummy_input = torch.randn(1, 3, 512, 512) # Standard SigLIP2 input size
     with torch.no_grad():
@@ -211,8 +201,8 @@ def train(args):
     scorer = RankNetScorer(input_dim=input_dim)
     model = LegibilityPredictor(feature_extractor, scorer).to(device)
     
-    criterion = RankNetLoss(scaling_factor=RANKNET_SCALING_FACTOR)
-    optimizer = optim.Adam(model.scorer.parameters(), lr=LEARNING_RATE) # Only train scorer
+    criterion = RankNetLoss(scaling_factor=args.scaling_factor)
+    optimizer = optim.Adam(model.scorer.parameters(), lr=args.learning_rate) # Only train scorer
 
     # 3. Training Loop
     best_val_loss = float('inf')
@@ -304,6 +294,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_file", type=str, required=True, help="Path to the JSONL file with ratings.")
     parser.add_argument("--epochs", type=int, default=10, help="Number of training epochs.")
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size for training.")
+    parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate.")
+    parser.add_argument("--model_name", type=str, default="google/siglip2-so400m-patch16-512", help="HuggingFace model name for SigLIP.")
+    parser.add_argument("--scaling_factor", type=float, default=10.0, help="Scaling factor for RankNet loss.")
     args = parser.parse_args()
     
     train(args)
