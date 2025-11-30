@@ -177,10 +177,11 @@ class RankNetLoss(nn.Module):
         """
         score_diff = score_i - score_j
         scaled_diff = self.scaling_factor * score_diff
-        pred_p_ij = torch.sigmoid(scaled_diff)
         
-        target = target_p_ij.view_as(pred_p_ij)
-        loss = nn.functional.binary_cross_entropy(pred_p_ij, target)
+        # Use BCEWithLogitsLoss for numerical stability and AMP safety
+        # scaled_diff acts as the logits
+        target = target_p_ij.view_as(scaled_diff)
+        loss = nn.functional.binary_cross_entropy_with_logits(scaled_diff, target)
         return loss
 
 
@@ -335,7 +336,7 @@ def validate(
         pixel_values_b = pixel_values_b.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
         
-        with autocast(enabled=use_amp):
+        with torch.amp.autocast('cuda', enabled=use_amp):
             score_a, score_b = model(pixel_values_a, pixel_values_b)
             loss = criterion(score_a, score_b, labels)
         
@@ -460,7 +461,7 @@ def train(args):
             labels = labels.to(device, non_blocking=True)
             
             # Forward pass with AMP
-            with autocast(enabled=args.use_amp):
+            with torch.amp.autocast('cuda', enabled=args.use_amp):
                 score_a, score_b = model(pixel_values_a, pixel_values_b)
                 loss = criterion(score_a, score_b, labels)
             
