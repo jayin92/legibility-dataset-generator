@@ -15,6 +15,10 @@ dependencies = [
     "python-dotenv",
     "openai>=2.6.1",
     "dashscope>=1.24.9",
+    "streamlit",
+    "torch",
+    "transformers",
+    "scikit-learn",
 ]
 
 [tool.uv]
