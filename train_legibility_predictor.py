@@ -165,17 +165,17 @@ class LegibilityPredictor(nn.Module):
 # --- Training Loop ---
 
 def train(args):
-    # Initialize WandB
-    wandb.init(project="legibility-predictor", config=vars(args))
-    
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-
     # Setup Output Directory
     base_name = os.path.splitext(os.path.basename(args.input_file))[0]
     output_dir = os.path.join("outputs", base_name)
     os.makedirs(output_dir, exist_ok=True)
     print(f"Saving checkpoints to: {output_dir}")
+
+    # Initialize WandB
+    wandb.init(project="legibility-predictor", config=vars(args), name=base_name)
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
 
     # 1. Prepare Data
     processor = AutoProcessor.from_pretrained(SIGLIP_MODEL_NAME)
@@ -239,7 +239,7 @@ def train(args):
             progress_bar.set_postfix({"loss": loss.item()})
             
             # Log batch loss
-            wandb.log({"batch_train_loss": loss.item()})
+            wandb.log({"batch_train_loss": loss.item(), "epoch": epoch + 1})
             
         avg_train_loss = train_loss / len(train_loader)
         
