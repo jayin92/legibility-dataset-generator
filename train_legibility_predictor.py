@@ -96,12 +96,12 @@ class RankNetScorer(nn.Module):
         super(RankNetScorer, self).__init__()
         self.net = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.BatchNorm1d(hidden_dim),
+            nn.GELU(),
+            nn.LayerNorm(hidden_dim),
             nn.Dropout(dropout_rate),
             nn.Linear(hidden_dim, 128),
-            nn.ReLU(),
-            nn.BatchNorm1d(128),
+            nn.GELU(),
+            nn.LayerNorm(128),
             nn.Dropout(dropout_rate),
             nn.Linear(128, 1),
             nn.Sigmoid() # Ensure output is in [0, 1]
