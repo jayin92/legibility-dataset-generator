@@ -56,15 +56,27 @@ class LegibilityDataset(Dataset):
     def _load_data(self, jsonl_file: str) -> list:
         """Load and validate data from JSONL file."""
         data = []
+        invalid_choices = set()
         with open(jsonl_file, 'r') as f:
             for line in f:
                 try:
                     item = json.loads(line)
-                    if item.get('choice') in self.LABEL_MAP:
+                    choice = item.get('choice')
+                    if isinstance(choice, str):
+                        # Strip quotes and whitespace
+                        choice = choice.strip().strip('"').strip("'")
+                        
+                    if choice in self.LABEL_MAP:
+                        # Update the item with the cleaned choice
+                        item['choice'] = choice
                         data.append(item)
+                    else:
+                        invalid_choices.add(item.get('choice'))
                 except json.JSONDecodeError:
                     continue
         print(f"Loaded {len(data)} valid pairs from {jsonl_file}")
+        if invalid_choices:
+            print(f"Ignored choices: {invalid_choices}")
         return data
 
     def __len__(self) -> int:
@@ -496,9 +508,6 @@ def train(args):
     for epoch in range(start_epoch, args.epochs):
         model.train()
         
-        # Step scheduler
-        scheduler.step()
-        
         train_loss = 0.0
         
         progress_bar = tqdm(
@@ -546,6 +555,9 @@ def train(args):
                     "batch/step": epoch * len(train_loader) + step,
                 })
         
+        
+        # Step scheduler
+        scheduler.step()
         
         # Validation
         val_metrics = validate(model, val_loader, criterion, device, args.use_amp)
