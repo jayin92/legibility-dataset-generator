@@ -14,7 +14,7 @@ from tqdm import tqdm
 import config
 
 # --- Configuration ---
-SIGLIP_MODEL_NAME = "google/siglip-base-patch16-224"
+SIGLIP_MODEL_NAME = "google/siglip2-so400m-patch16-512"
 BATCH_SIZE = 32
 LEARNING_RATE = 1e-4
 NUM_EPOCHS = 10
@@ -191,7 +191,7 @@ def train(args):
     # 2. Initialize Model
     feature_extractor = SigLIPFeatureExtractor()
     # Get embedding dimension dynamically
-    dummy_input = torch.randn(1, 3, 224, 224) # Standard SigLIP input size
+    dummy_input = torch.randn(1, 3, 512, 512) # Standard SigLIP2 input size
     # We need to run a dummy pass or check config. 
     # SigLIP base usually has 768 dim.
     # Let's trust the model config or run a dummy pass on CPU.
