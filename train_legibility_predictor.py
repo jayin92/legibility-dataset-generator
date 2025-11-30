@@ -419,7 +419,8 @@ def train(args):
     print(f"Using device: {device}")
     
     # Output directory
-    base_name = Path(args.input_file).stem
+    model_name_safe = args.model_name.replace("/", "-")
+    base_name = f"{Path(args.input_file).stem}_{model_name_safe}"
     output_dir = Path("outputs") / base_name
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Saving checkpoints to: {output_dir}")
