@@ -32,13 +32,13 @@ async def process_letter(letter, rating_semaphore):
         return
 
     # 2. Rate Pairs (with concurrency limit)
-    csv_file = f"pairs_{letter}.csv"
+    csv_file = os.path.join("data", "pairs", f"pairs_{letter}.csv")
     if not os.path.exists(csv_file):
         print(f"[{letter}] CSV file not found: {csv_file}")
         return
 
     # Construct rate_pairs command
-    # Using defaults or what user likely wants:  gemini-2.5-flash-lite batch mode, 5-level scores
+    # Using defaults or what user likely wants: gemini-2.5-flash-lite, batch mode, 5-level scores
     rate_cmd = (
         f"{PYTHON_EXECUTABLE} rate_pairs.py {csv_file} "
         f"--provider gemini "

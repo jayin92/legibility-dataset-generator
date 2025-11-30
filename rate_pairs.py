@@ -432,7 +432,7 @@ async def main():
 
     # Setup output JSONL file
     base_name = os.path.splitext(os.path.basename(args.input_csv))[0]
-    output_dir = "data"
+    output_dir = os.path.join("data", "train")
     os.makedirs(output_dir, exist_ok=True)
     output_jsonl = os.path.join(output_dir, f"ratings_{base_name}_{args.provider}_{args.model}.jsonl")
     
