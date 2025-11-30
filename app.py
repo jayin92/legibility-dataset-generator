@@ -1,3 +1,8 @@
+import os
+# Set Gradio temp dir to local to avoid permission issues in /tmp
+os.environ["GRADIO_TEMP_DIR"] = os.path.join(os.getcwd(), "gradio_temp")
+os.makedirs(os.environ["GRADIO_TEMP_DIR"], exist_ok=True)
+
 import argparse
 import torch
 import gradio as gr
