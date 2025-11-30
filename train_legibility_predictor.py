@@ -10,7 +10,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
-from torch.cuda.amp import autocast, GradScaler
 from PIL import Image
 from transformers import AutoModel, AutoProcessor
 from sklearn.model_selection import train_test_split
@@ -425,7 +424,7 @@ def train(args):
     )
     
     # Mixed precision
-    scaler = GradScaler(enabled=args.use_amp)
+    scaler = torch.amp.GradScaler('cuda', enabled=args.use_amp)
     
     # Early stopping
     early_stopping = EarlyStopping(patience=args.patience)
